@@ -10,6 +10,7 @@ from typing import Any, Literal, NamedTuple, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
+import torch
 
 if __name__ == "__main__":
     import sys
@@ -57,7 +58,7 @@ class ReaderTensor(NamedTuple):
     n_elements: int
     n_bytes: int
     data_offset: int
-    data: npt.NDArray[Any]
+    data: npt.NDrray[Any]
     field: ReaderField
 
 
@@ -98,6 +99,7 @@ class GGUFReader:
             raise ValueError(f'Sorry, file appears to be version {version} which we cannot handle')
         self.fields: OrderedDict[str, ReaderField] = OrderedDict()
         self.tensors: list[ReaderTensor] = []
+        self.weights : dict[str, torch.Tensor] = {}
         offs += self._push_field(ReaderField(offs, 'GGUF.version', [temp_version], [0], [GGUFValueType.UINT32]))
         temp_counts = self._get(offs, np.uint64, 2)
         offs += self._push_field(ReaderField(offs, 'GGUF.tensor_count', [temp_counts[:1]], [0], [GGUFValueType.UINT64]))
@@ -262,3 +264,20 @@ class GGUFReader:
                 field = field,
             ))
         self.tensors = tensors
+        self.weights = {translate_weight_names(tensor.name): torch.from_numpy(tensor.data) for tensor in self.tensors}
+
+def translate_weight_names(name):
+    name = name.replace("blk.", "model.layers.")
+    name = name.replace("ffn_gate", "mlp.gate_proj")
+    name = name.replace("ffn_down", "mlp.down_proj")
+    name = name.replace("ffn_up", "mlp.up_proj")
+    name = name.replace("attn_q", "self_attn.q_proj")
+    name = name.replace("attn_k", "self_attn.k_proj")
+    name = name.replace("attn_v", "self_attn.v_proj")
+    name = name.replace("attn_output", "self_attn.o_proj")
+    name = name.replace("attn_norm", "input_layernorm")
+    name = name.replace("ffn_norm", "post_attention_layernorm")
+    name = name.replace("token_embd", "model.embed_tokens")
+    name = name.replace("output_norm", "model.norm")
+    name = name.replace("output", "lm_head")
+    return name

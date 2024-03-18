@@ -2,12 +2,14 @@
 import sys
 from pathlib import Path
 from gguf.gguf_reader import GGUFReader
+from safetensors.torch import save_file
+import os
 
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-def read_gguf_file(gguf_file_path):
+def read_gguf_file(gguf_file_path, dest_dir):
     """
     Reads and prints key-value pairs and tensor information from a GGUF file in an improved format.
 
@@ -35,11 +37,23 @@ def read_gguf_file(gguf_file_path):
         size_str = str(tensor.n_elements)
         quantization_str = tensor.tensor_type.name
         print(tensor_info_format.format(tensor.name, shape_str, size_str, quantization_str))
+    
+    # print("weights:")
+    # for tensor in reader.tensors:
+    #     print(tensor.data)
 
+    save_file(
+            reader.weights,
+            os.path.join(dest_dir, "model.safetensors"),
+            metadata={"format": "pt"},
+        )
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Usage: reader.py <path_to_gguf_file>")
         sys.exit(1)
     gguf_file_path = sys.argv[1]
-    read_gguf_file(gguf_file_path)
+    dest_dir = sys.argv[2]
+    read_gguf_file(gguf_file_path, dest_dir)
+
+
